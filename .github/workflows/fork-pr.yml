@@ -1,0 +1,20 @@
+# hyzu M7 sign-off workflow (task M7-09, plans/contracts/ci.md §14 check 5, D65). The owner opens one
+# pull request from a fork in another account (the owner's hyzu GitHub organization) into the public
+# test repo and leaves it open (U19). The harness re-runs that PR's latest run with the test token:
+# with the policy on for the owner it runs and prints the pull_request payload's visibility; with the
+# policy off it is refused `public_repo_refused`; with the policy on for another login it is refused
+# `actor_not_allowed`. A fork's pull_request run gets a read-only token and no secrets.
+name: fork-pr
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  fork:
+    runs-on: hyzu-large
+    timeout-minutes: 10
+    steps:
+      - name: payload visibility
+        run: |
+          echo "HYZU_PAYLOAD event=$GITHUB_EVENT_NAME repository=$(jq -c '.repository | {visibility, private}' "$GITHUB_EVENT_PATH")"
+          echo "HYZU_FORK head=$(jq -r '.pull_request.head.repo.full_name // "none"' "$GITHUB_EVENT_PATH") fork=$(jq -r '.pull_request.head.repo.fork // "none"' "$GITHUB_EVENT_PATH")"

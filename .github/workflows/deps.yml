@@ -1,0 +1,30 @@
+# hyzu M7 sign-off workflow (task M7-09; the note of M7-06b on payload visibility). A `schedule`
+# run, so the sign-off can record what GitHub's payload of a scheduled run says about the
+# repository's visibility (the job-started hook refuses `repository_visibility_changed` when the
+# payload has neither `repository.visibility` nor `repository.private`; then the job fails before
+# this step and the hook's one-line reason is in the job's log instead). GitHub runs schedules late
+# and not always; the harness records the scheduled jobs that ran during its window and says so when
+# none did. `hyzu-small` is a label no other test workflow uses, so a scheduled job never takes a
+# `hyzu-large` runner of the latency block. While no hyzu runner is up its queued jobs expire at
+# GitHub after 24 h; the harness cancels every queued run of the repo at its start.
+name: deps
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scheduled:
+    runs-on: hyzu-small
+    timeout-minutes: 10
+    steps:
+      - name: payload visibility
+        run: |
+          echo "HYZU_PAYLOAD event=$GITHUB_EVENT_NAME repository=$(jq -c '.repository | {visibility, private}' "$GITHUB_EVENT_PATH")"
+      - name: kept-VM control
+        # The sign-off keeps the first job's VM (its probe job, this one by workflow_dispatch) and
+        # scans its memory for secrets; this line in tmpfs (memory only) proves the scan read that
+        # VM's own memory. Not secret.
+        run: |
+          printf 'hyzu-m7-kept-%s\n' "$GITHUB_RUN_ID" > /dev/shm/hyzu-m7-kept

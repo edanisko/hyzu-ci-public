@@ -1,0 +1,20 @@
+# hyzu M7 sign-off workflow (task M7-09, plans/contracts/ci.md §14 check 5). The harness pushes an
+# empty commit to the branch `ci-push-test` through the git data API (the test token, U20): with the
+# public-repo policy on for the owner the job runs and prints the push payload's visibility; with the
+# policy off hyzu refuses it (`public_repo_refused`) and cancels the run. The branch must be made
+# after this file is on the default branch (U19), so its tree has the file.
+name: push
+on:
+  push:
+    branches: [ci-push-test]
+permissions:
+  contents: read
+jobs:
+  push:
+    runs-on: hyzu-large
+    timeout-minutes: 10
+    steps:
+      - name: payload visibility
+        run: |
+          echo "HYZU_PAYLOAD event=$GITHUB_EVENT_NAME repository=$(jq -c '.repository | {visibility, private}' "$GITHUB_EVENT_PATH")"
+          uname -a

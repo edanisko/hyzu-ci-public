@@ -1,0 +1,48 @@
+# hyzu M7 sign-off workflow (task M7-09, plans/contracts/ci.md §14 checks 2-3). The owner commits the
+# files of tests/e2e/m7/workflows/ into .github/workflows/ of the public test repo (U19). The harness
+# (tests/e2e/m7-real.sh) starts this one with POST .../actions/workflows/bench.yml/dispatches: once
+# for the `jobs` block, then 10 more times for the latency block (20 jobs).
+#
+# Every job prints, as its first step, what GitHub's event payload says about the repository's
+# visibility (the job-started hook compares it, ci.md §10.3), as one `HYZU_PAYLOAD` line the harness
+# reads from the job's log. The only third-party action is actions/checkout.
+name: bench
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  plain:
+    runs-on: hyzu-large
+    timeout-minutes: 15
+    steps:
+      - name: payload visibility
+        run: |
+          echo "HYZU_PAYLOAD event=$GITHUB_EVENT_NAME repository=$(jq -c '.repository | {visibility, private}' "$GITHUB_EVENT_PATH")"
+      - name: runner facts
+        run: |
+          root="${RUNNER_TEMP%/_work/_temp}"
+          echo "HYZU_RUNNER update=$(sed '1s/^\xEF\xBB\xBF//' "$root/.runner" 2>/dev/null | jq -c 'with_entries(select(.key | test("^(disableupdate|ephemeral)$"; "i")))' 2>/dev/null || echo unreadable)"
+          echo "HYZU_OVERLAY root=$(findmnt -n -o FSTYPE -T "$root" 2>/dev/null || echo unknown) work=$(findmnt -n -o FSTYPE -T "$RUNNER_TEMP" 2>/dev/null || echo unknown)"
+          uname -a
+          nproc
+      # actions/checkout v5.1.0 (node24), pinned by its release commit.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: checked out
+        run: |
+          echo "HYZU_CHECKOUT files=$(ls -A | wc -l)"
+  deps:
+    runs-on: hyzu-large/from=ci-deps
+    timeout-minutes: 15
+    steps:
+      - name: payload visibility
+        run: |
+          echo "HYZU_PAYLOAD event=$GITHUB_EVENT_NAME repository=$(jq -c '.repository | {visibility, private}' "$GITHUB_EVENT_PATH")"
+      - name: template marker
+        run: |
+          uname -a
+          nproc
+          test -f /opt/ci-deps/marker
+          echo "HYZU_DEPS_MARKER $(cat /opt/ci-deps/marker) mib=$(du -sm /opt/ci-deps | cut -f1)"
